@@ -32,14 +32,19 @@ var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 
 
-function sendJSONXMLHTTPRequest(url, objects, callback) {
+function sendJSONXMLHTTPRequest(url, objects, callback, method="GET") {
     var xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
     xhr.onreadystatechange = function () {
         if (xhr.readyState==4) {
             try {
                 if (xhr.status==200) {
                     //XXX: parse some JSON from the request!
                     //XXX: Pass the data to the callback!
+                    if (callback) {
+                        const res = JSON.parse(xhr.responseText)
+                        callback(res);
+                    }
                 }
             } 
             catch(e) {
@@ -50,6 +55,10 @@ function sendJSONXMLHTTPRequest(url, objects, callback) {
     //XXX: POST to a URL
     //XXX: set the mimetype and the accept headers!
     // Remember to use application/json !
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("Content-Type", "application/json");
+    const body = JSON.stringify(objects)
+    xhr.send(body);
 }
 
 
@@ -82,11 +91,10 @@ function prepEntity(entity) {
 
 function clearFrame() {
     with(context) {
-	moveTo(0,0);
-	fillStyle = "#000";
-	fillRect(0,0,W,H);
+        moveTo(0,0);
+        fillStyle = "#000";
+        fillRect(0,0,W,H);
     }
-
 }
 
 // This actually draws the frame
@@ -136,15 +144,15 @@ function getPosition(e) {
 
 function addEntity(entity, data) {
     world[entity] = data;
-    drawNextFrame(); // (but should we?)
+    // drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just  modified!
-
+    sendJSONXMLHTTPRequest(`http://${host}/entity/${entity}`, data, null, method="POST");
 }
 
 var counter = 0;
 function addEntityWithoutName(data) {
     //var name = "X"+Math.floor((Math.random()*100)+1);
-    var name = "X"+(counter++)%100;
+    const name = "X"+(counter++)%100;
     addEntity(name,data);
 }
 
@@ -262,7 +270,11 @@ mouse.mousedraggers.push(function(x,y,clicked,e) {
 
 function update() {
     //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
-    drawFrame();
+    sendJSONXMLHTTPRequest(`http://${host}/world`, null, function(res) {
+        world = res;
+        drawNextFrame()
+        drawFrame()
+    });
 }
 
 // 30 frames per second
